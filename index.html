@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smartphone Empire: Remastered</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --primary: #6366f1;
+            --accent: #f43f5e;
+            --success: #10b981;
+            --gold: #fbbf24;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        body { background: var(--bg-dark); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* Utility */
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .col { flex-direction: column; }
+        .row { flex-direction: row; }
+        .gap { gap: 15px; }
+        .center { align-items: center; justify-content: center; }
+        .btn { padding: 10px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 0.9rem; }
+        .btn:active { transform: scale(0.95); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--accent); color: white; }
+        .btn-gold { background: linear-gradient(135deg, #fbbf24, #d97706); color: #000; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+
+        /* Start Screen */
+        #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(5px); z-index: 100; }
+        .modal { background: var(--bg-panel); padding: 40px; border-radius: 12px; border: 1px solid var(--border); max-width: 400px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; }
+        input { width: 100%; padding: 12px; margin: 15px 0; background: #00000040; border: 1px solid var(--border); color: white; border-radius: 4px; }
+
+        /* Layout */
+        header { height: 70px; background: var(--bg-panel); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 10; }
+        .resource-group { display: flex; gap: 20px; }
+        .res-item { text-align: center; }
+        .res-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; }
+        .res-val { font-size: 1.2rem; font-weight: bold; font-family: 'Courier New', monospace; }
+        .money { color: var(--success); text-shadow: 0 0 10px rgba(16,185,129,0.3); }
+
+        main { flex: 1; display: flex; overflow: hidden; }
+        
+        aside { width: 220px; background: var(--bg-panel); padding: 10px; display: flex; flex-direction: column; border-right: 1px solid var(--border); }
+        .nav-item { padding: 15px; margin-bottom: 5px; cursor: pointer; border-radius: 8px; color: var(--text-muted); transition: 0.2s; font-weight: 500; display: flex; justify-content: space-between; }
+        .nav-item:hover { background: #ffffff0a; color: white; }
+        .nav-item.active { background: var(--primary); color: white; }
+
+        #content { flex: 1; padding: 20px; overflow-y: auto; position: relative; }
+
+        /* Cards & Grid */
+        .grid-tech { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+        .tech-card { background: #ffffff05; border: 1px solid var(--border); padding: 10px; border-radius: 8px; cursor: pointer; text-align: center; position: relative; transition: 0.2s; font-size: 0.9rem; }
+        .tech-card:hover { border-color: var(--text-muted); }
+        .tech-card.selected { border-color: var(--primary); background: #6366f11a; box-shadow: 0 0 0 1px var(--primary); }
+        .tech-card.locked { opacity: 0.3; pointer-events: none; }
+        
+        .card { background: var(--bg-panel); border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid var(--border); }
+
+        /* Phones List */
+        .phone-item { display: flex; justify-content: space-between; align-items: center; background: #ffffff05; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--border); transition: 0.3s; }
+        .phone-item.hit { border-left-color: var(--gold); background: linear-gradient(90deg, #fbbf241a, transparent); }
+        .phone-item.flop { border-left-color: var(--accent); }
+
+        /* Toast */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 200; pointer-events: none; }
+        .toast { background: var(--bg-panel); color: white; padding: 12px 20px; border-radius: 6px; border-left: 4px solid var(--primary); box-shadow: 0 5px 15px rgba(0,0,0,0.5); animation: slideIn 0.3s; pointer-events: all; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        @media (max-width: 700px) {
+            main { flex-direction: column; }
+            aside { width: 100%; height: auto; flex-direction: row; overflow-x: auto; padding: 5px; }
+            .nav-item { padding: 10px; font-size: 0.8rem; white-space: nowrap; }
+            .resource-group { gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="modal-overlay" class="flex center">
+        <div class="modal">
+            <h1 id="modal-title" style="margin-bottom: 10px; color: var(--primary);">SMARTPHONE TYCOON</h1>
+            <p id="modal-desc" style="color: var(--text-muted); margin-bottom: 20px;">Побудуй імперію гаджетів.</p>
+            
+            <div id="start-form">
+                <input type="text" id="company-name" placeholder="Назва компанії" maxlength="15">
+                <div class="flex col gap">
+                    <button class="btn btn-primary" onclick="Game.startNew()">Заснувати компанію</button>
+                    <button class="btn btn-outline hidden" id="btn-load-save" onclick="Game.load()">📥 Продовжити гру</button>
+                </div>
+            </div>
+            
+            <div id="end-game-controls" class="hidden">
+                <p style="font-size: 3rem; margin: 20px 0;">👑</p>
+                <p style="margin-bottom: 20px;">Ти переміг гру! Твоя компанія коштує мільярди.</p>
+                <button class="btn btn-primary" onclick="Game.resetGame()">Почати заново</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-ui" class="col hidden" style="height: 100%;">
+        <header>
+            <div class="flex center gap">
+                <div>
+                    <div style="font-weight: bold; font-size: 1.2rem; color: var(--primary);" id="ui-company">Inc.</div>
+                    <div style="font-size: 0.8rem; padding: 4px 8px; background: #ffffff10; border-radius: 4px;" id="ui-office">Гараж</div>
+                </div>
+            </div>
+            <div class="resource-group">
+                <div class="res-item">
+                    <div class="res-label">Бюджет</div>
+                    <div class="res-val money" id="ui-money">$0</div>
+                </div>
+                <div class="res-item">
+                    <div class="res-label">Репутація</div>
+                    <div class="res-val" id="ui-rep">0</div>
+                </div>
+                <div class="res-item">
+                    <div class="res-label">Рік</div>
+                    <div class="res-val" id="ui-year">1</div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <aside>
+                <div class="nav-item active" onclick="UI.tab('office')">🏠 Офіс</div>
+                <div class="nav-item" onclick="UI.tab('lab')">🛠 Створення</div>
+                <div class="nav-item" onclick="UI.tab('research')">🔬 Наука</div>
+                <div class="nav-item" onclick="UI.tab('market')">🌎 Ринок</div>
+                <div style="margin-top: auto; padding: 15px;">
+                   <button class="btn btn-outline" style="width: 100%; font-size: 0.8rem;" onclick="Game.manualSave()">💾 Зберегти</button>
+                </div>
+            </aside>
+
+            <section id="content">
+                <div id="tab-office" class="tab-view">
+                    <div class="card">
+                        <div class="flex" style="justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h2>Стан компанії</h2>
+                            <button class="btn btn-gold" onclick="Game.upgradeOffice()" id="btn-upgrade-office">Апгрейд ($5k)</button>
+                        </div>
+                        <p style="color: var(--text-muted);">Слотів виробництва: <span id="ui-slots">1</span></p>
+                        <div style="margin-top: 20px;" id="active-phones"></div>
+                    </div>
+                </div>
+
+                <div id="tab-lab" class="tab-view hidden">
+                    <div class="card">
+                        <h2>Проектування ($<span id="dev-cost">0</span>)</h2>
+                        <input type="text" id="phone-name" placeholder="Назва моделі (напр. X-Phone 1)" style="background: #00000030;">
+                        
+                        <h4 style="margin: 10px 0;">Дисплей</h4> <div class="grid-tech" id="grid-screen"></div>
+                        <h4 style="margin: 10px 0;">Процесор</h4> <div class="grid-tech" id="grid-cpu"></div>
+                        <h4 style="margin: 10px 0;">Камера</h4> <div class="grid-tech" id="grid-cam"></div>
+
+                        <div style="margin: 20px 0; padding: 15px; background: #00000030; border-radius: 8px;">
+                            <label>Ціна продажу: $<span id="slider-val">400</span></label>
+                            <input type="range" id="price-slider" min="100" max="3000" step="10" value="400" style="width: 100%; margin-top: 10px;" oninput="UI.updatePreview()">
+                            <div class="flex" style="justify-content: space-between; margin-top: 10px; font-size: 0.85rem;">
+                                <span>Собівартість: <b id="ui-cost" style="color: var(--accent)">$0</b></span>
+                                <span>Рейтинг Tech: <b id="ui-tech-score" style="color: var(--primary)">0</b></span>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" style="width: 100%;" onclick="Game.createPhone()">🚀 ЗАПУСТИТИ КОНВЕЄР</button>
+                    </div>
+                </div>
+
+                <div id="tab-research" class="tab-view hidden">
+                    <div class="card">
+                        <h2>R&D Відділ</h2>
+                        <p style="margin-bottom: 15px; color: var(--text-muted);">Вивчай технології, щоб створювати дорожчі телефони.</p>
+                        <div id="research-tree" class="col gap"></div>
+                    </div>
+                </div>
+
+                <div id="tab-market" class="tab-view hidden">
+                    <div class="card">
+                        <h2>Фінанси та Маркетинг</h2>
+                        <div class="flex col gap">
+                            <div class="flex" style="justify-content: space-between; align-items: center; background: #ffffff05; padding: 10px; border-radius: 6px;">
+                                <div>
+                                    <h4>Банк "Швидкі Гроші"</h4>
+                                    <small class="text-muted">Отримати $50,000 (Втрата репутації)</small>
+                                </div>
+                                <button class="btn btn-danger" onclick="Game.takeLoan()">Взяти кредит</button>
+                            </div>
+                            
+                            <div class="flex" style="justify-content: space-between; align-items: center; background: #ffffff05; padding: 10px; border-radius: 6px;">
+                                <div>
+                                    <h4>Рекламна інтеграція</h4>
+                                    <small class="text-muted">+50% до продажів на місяць</small>
+                                </div>
+                                <button class="btn btn-success" onclick="Game.marketing(5000)">Купити ($5k)</button>
+                            </div>
+
+                            <div class="flex" style="justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+                                <div>
+                                    <h4>Світове панування</h4>
+                                    <small class="text-muted">Купити всіх конкурентів (Перемога)</small>
+                                </div>
+                                <button class="btn btn-gold" onclick="Game.winGame()">$100,000,000</button>
+                            </div>
+
+                             <button class="btn btn-outline" style="margin-top: 10px;" onclick="Game.shareScore()">📋 Скопіювати результат для друзів</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        /* --- CONFIG --- */
+        const DB = {
+            offices: [
+                { name: "Гараж", cost: 0, slots: 1 },
+                { name: "Офіс", cost: 5000, slots: 2 },
+                { name: "Студія", cost: 20000, slots: 3 },
+                { name: "Штаб", cost: 100000, slots: 5 },
+                { name: "Хмарочос", cost: 500000, slots: 8 },
+                { name: "Космічна база", cost: 5000000, slots: 15 }
+            ],
+            techs: {
+                screen: [
+                    { name: 'TN Matrix', cost: 30, score: 10, req: 0 },
+                    { name: 'IPS LCD', cost: 60, score: 25, req: 3000 },
+                    { name: 'OLED', cost: 100, score: 50, req: 15000 },
+                    { name: 'Retina', cost: 180, score: 90, req: 60000 },
+                    { name: 'Foldable', cost: 350, score: 150, req: 250000 },
+                    { name: 'Hologram', cost: 700, score: 300, req: 1000000 }
+                ],
+                cpu: [
+                    { name: '1-Core', cost: 20, score: 10, req: 0 },
+                    { name: 'Dual-Core', cost: 45, score: 25, req: 3000 },
+                    { name: 'Quad-Core', cost: 80, score: 55, req: 15000 },
+                    { name: 'Snapdragon X', cost: 150, score: 100, req: 60000 },
+                    { name: 'Neural Chip', cost: 300, score: 180, req: 250000 },
+                    { name: 'Quantum CPU', cost: 800, score: 400, req: 1000000 }
+                ],
+                cam: [
+                    { name: '1.3 MP', cost: 15, score: 5, req: 0 },
+                    { name: '5 MP', cost: 35, score: 15, req: 3000 },
+                    { name: '12 MP Dual', cost: 70, score: 40, req: 15000 },
+                    { name: '48 MP AI', cost: 140, score: 85, req: 60000 },
+                    { name: '108 MP Pro', cost: 250, score: 140, req: 250000 },
+                    { name: '3D Scanner', cost: 500, score: 250, req: 1000000 }
+                ]
+            }
+        };
+
+        const InitialState = {
+            company: "",
+            money: 50000, // Легший старт
+            rep: 10,
+            day: 1,
+            officeLvl: 0,
+            phones: [],
+            unlockedTech: { screen: 0, cpu: 0, cam: 0 },
+            marketingBoost: 0
+        };
+
+        let State = JSON.parse(JSON.stringify(InitialState));
+        let loopId = null;
+        let saveInterval = null;
+        let selected = { screen: 0, cpu: 0, cam: 0 };
+
+        /* --- GAME ENGINE --- */
+        const Game = {
+            checkSave: () => {
+                if(localStorage.getItem('tycoonSave')) {
+                    document.getElementById('btn-load-save').classList.remove('hidden');
+                }
+            },
+
+            startNew: () => {
+                const name = document.getElementById('company-name').value;
+                if(!name) return UI.toast("Введіть назву!", "error");
+                State = JSON.parse(JSON.stringify(InitialState)); // Reset
+                State.company = name;
+                Game.launch();
+            },
+
+            load: () => {
+                const data = localStorage.getItem('tycoonSave');
+                if(data) {
+                    State = JSON.parse(data);
+                    Game.launch();
+                    UI.toast("Гру завантажено!", "success");
+                }
+            },
+
+            launch: () => {
+                document.getElementById('modal-overlay').classList.add('hidden');
+                document.getElementById('game-ui').classList.remove('hidden');
+                UI.renderTechGrid();
+                UI.renderResearch();
+                UI.updateHeader();
+                
+                if(loopId) clearInterval(loopId);
+                loopId = setInterval(Game.tick, 1000);
+                
+                if(saveInterval) clearInterval(saveInterval);
+                saveInterval = setInterval(Game.manualSave, 10000); // Autosave 10s
+            },
+
+            tick: () => {
+                State.day++;
+                Game.processSales();
+                if (State.marketingBoost > 0) State.marketingBoost -= 0.05;
+                UI.updateHeader();
+                UI.updatePhonesList();
+            },
+
+            processSales: () => {
+                State.phones.forEach(p => {
+                    if (!p.active) return;
+                    // BALANCE FIX: Кращі множники
+                    const techScore = p.score;
+                    const priceRatio = (techScore * 6) / p.price; 
+                    const agePenalty = Math.max(0, 1 - (p.age / 120)); 
+                    const market = 1.0 + State.marketingBoost;
+                    
+                    // Більше продажів
+                    let sales = Math.floor(60 * priceRatio * agePenalty * market * (1 + State.rep / 50));
+                    
+                    if (sales > 0) {
+                        const profit = sales * (p.price - p.cost);
+                        State.money += profit;
+                        p.sold += sales;
+                        p.profit += profit;
+                        if (priceRatio > 0.9) State.rep += 0.02;
+                    } else if (p.age > 20) {
+                        p.active = false;
+                        UI.toast(`${p.name}: знято з продажу`, "warning");
+                    }
+                    p.age++;
+                });
+            },
+
+            createPhone: () => {
+                const office = DB.offices[State.officeLvl];
+                const active = State.phones.filter(p => p.active).length;
+                if (active >= office.slots) return UI.toast(`Немає місця в офісі!`, "error");
+
+                const s = DB.techs.screen[selected.screen];
+                const c = DB.techs.cpu[selected.cpu];
+                const m = DB.techs.cam[selected.cam];
+                const name = document.getElementById('phone-name').value || `Model-${State.phones.length+1}`;
+                const price = parseInt(document.getElementById('price-slider').value);
+                const unitCost = s.cost + c.cost + m.cost;
+                
+                // BALANCE FIX: Менша інфляція
+                const devCost = Math.floor(2000 * (1 + (State.phones.length * 0.1))); 
+
+                if (State.money < devCost) return UI.toast("Немає грошей на розробку!", "error");
+
+                State.money -= devCost;
+                State.phones.unshift({
+                    id: Date.now(), name, price, cost: unitCost,
+                    score: s.score + c.score + m.score,
+                    sold: 0, profit: 0, age: 0, active: true
+                });
+
+                UI.toast(`Смартфон ${name} створено!`, "success");
+                UI.tab('office');
+            },
+
+            research: (cat, idx) => {
+                const tech = DB.techs[cat][idx];
+                if (State.money >= tech.req) {
+                    State.money -= tech.req;
+                    State.unlockedTech[cat] = idx;
+                    State.rep += 5;
+                    UI.toast(`${tech.name} вивчено!`, "success");
+                    UI.renderTechGrid();
+                    UI.renderResearch();
+                    UI.updateHeader();
+                } else {
+                    UI.toast("Не вистачає коштів!", "error");
+                }
+            },
+
+            upgradeOffice: () => {
+                const next = DB.offices[State.officeLvl + 1];
+                if (next && State.money >= next.cost) {
+                    State.money -= next.cost;
+                    State.officeLvl++;
+                    UI.toast(`Новий офіс: ${next.name}!`, "success");
+                    UI.updateHeader();
+                } else {
+                    UI.toast("Не вистачає коштів!", "error");
+                }
+            },
+
+            takeLoan: () => {
+                State.money += 50000;
+                State.rep = Math.max(0, State.rep - 15);
+                UI.toast("Кредит взято! Репутація знизилась.", "warning");
+                UI.updateHeader();
+            },
+
+            marketing: (cost) => {
+                if(State.money >= cost) {
+                    State.money -= cost;
+                    State.marketingBoost += 0.5;
+                    UI.toast("Реклама запущена!", "success");
+                } else UI.toast("Бракує грошей", "error");
+            },
+
+            manualSave: () => {
+                localStorage.setItem('tycoonSave', JSON.stringify(State));
+                // Silent autosave usually, but explicit here for button
+                if(event && event.type === 'click') UI.toast("Збережено!", "success");
+            },
+
+            resetGame: () => {
+                localStorage.removeItem('tycoonSave');
+                location.reload();
+            },
+
+            winGame: () => {
+                if (State.money >= 100000000) {
+                    clearInterval(loopId);
+                    document.getElementById('modal-overlay').classList.remove('hidden');
+                    document.getElementById('start-form').classList.add('hidden');
+                    document.getElementById('end-game-controls').classList.remove('hidden');
+                } else UI.toast("Треба $100M!", "error");
+            },
+            
+            shareScore: () => {
+                const msg = `Я заробив $${Math.floor(State.money).toLocaleString()} у грі Smartphone Tycoon! Моя компанія: ${State.company}. Зможеш більше?`;
+                navigator.clipboard.writeText(msg).then(() => UI.toast("Результат скопійовано!", "success"));
+            }
+        };
+
+        /* --- UI HELPERS --- */
+        const UI = {
+            tab: (id) => {
+                document.querySelectorAll('.tab-view').forEach(e => e.classList.add('hidden'));
+                document.getElementById(`tab-${id}`).classList.remove('hidden');
+                document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+                event.currentTarget.classList.add('active');
+            },
+
+            updateHeader: () => {
+                document.getElementById('ui-money').innerText = `$${Math.floor(State.money).toLocaleString()}`;
+                document.getElementById('ui-rep').innerText = Math.floor(State.rep);
+                document.getElementById('ui-year').innerText = Math.floor(State.day / 365) + 1;
+                document.getElementById('ui-company').innerText = State.company;
+                const off = DB.offices[State.officeLvl];
+                document.getElementById('ui-office').innerText = off.name;
+                document.getElementById('ui-slots').innerText = off.slots;
+
+                const next = DB.offices[State.officeLvl + 1];
+                const btn = document.getElementById('btn-upgrade-office');
+                if(next) btn.innerText = `Апгрейд: ${next.name} ($${next.cost/1000}k)`;
+                else { btn.innerText = "MAX"; btn.disabled = true; }
+            },
+
+            renderTechGrid: () => {
+                const mk = (cat, elId) => {
+                    document.getElementById(elId).innerHTML = DB.techs[cat].map((t, i) => {
+                        const unlk = i <= State.unlockedTech[cat];
+                        return `<div class="tech-card ${!unlk?'locked':''} ${selected[cat]===i?'selected':''}" 
+                                onclick="selected['${cat}']=${i}; UI.renderTechGrid()">
+                                <div>${t.name}</div><div style="color:#aaa">$${t.cost}</div>
+                                </div>`;
+                    }).join('');
+                };
+                mk('screen', 'grid-screen'); mk('cpu', 'grid-cpu'); mk('cam', 'grid-cam');
+                UI.updatePreview();
+            },
+
+            updatePreview: () => {
+                const s = DB.techs.screen[selected.screen];
+                const c = DB.techs.cpu[selected.cpu];
+                const m = DB.techs.cam[selected.cam];
+                document.getElementById('ui-cost').innerText = `$${s.cost + c.cost + m.cost}`;
+                document.getElementById('ui-tech-score').innerText = s.score + c.score + m.score;
+                document.getElementById('slider-val').innerText = document.getElementById('price-slider').value;
+                document.getElementById('dev-cost').innerText = Math.floor(2000 * (1 + (State.phones.length * 0.1)));
+            },
+
+            updatePhonesList: () => {
+                const div = document.getElementById('active-phones');
+                const active = State.phones.filter(p => p.active);
+                if (active.length === 0) return div.innerHTML = "<div class='text-muted'>Немає активних продажів.</div>";
+                div.innerHTML = active.map(p => `
+                    <div class="phone-item ${p.profit > p.cost*100 ? 'hit' : ''}">
+                        <div><b>${p.name}</b> <small>($${p.price})</small><br><small class="text-muted">Sold: ${p.sold}</small></div>
+                        <div style="text-align:right; color:${p.profit>0?'var(--success)':'var(--accent)'}">+$${Math.floor(p.profit).toLocaleString()}</div>
+                    </div>`).join('');
+            },
+
+            renderResearch: () => {
+                let html = '';
+                ['screen', 'cpu', 'cam'].forEach(cat => {
+                    const nxt = State.unlockedTech[cat] + 1;
+                    if (nxt < DB.techs[cat].length) {
+                        const t = DB.techs[cat][nxt];
+                        html += `<div class="phone-item">
+                            <div><strong>${t.name}</strong> (${cat.toUpperCase()})<br><small>Вимога: Tech Score +${t.score}</small></div>
+                            <button class="btn btn-primary" onclick="Game.research('${cat}', ${nxt})">Вивчити ($${t.req.toLocaleString()})</button>
+                        </div>`;
+                    } else html += `<div class="text-muted" style="padding:5px; font-size:0.8rem">Всі технології ${cat} вивчені.</div>`;
+                });
+                document.getElementById('research-tree').innerHTML = html;
+            },
+
+            toast: (msg, type) => {
+                const el = document.createElement('div');
+                el.className = 'toast'; el.innerText = msg;
+                if(type === 'error') el.style.borderLeftColor = 'var(--accent)';
+                if(type === 'success') el.style.borderLeftColor = 'var(--success)';
+                document.getElementById('toast-container').appendChild(el);
+                setTimeout(() => el.remove(), 3000);
+            }
+        };
+
+        // Init
+        Game.checkSave();
+    </script>
+</body>
+</html>
